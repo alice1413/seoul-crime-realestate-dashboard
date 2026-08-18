@@ -20,6 +20,7 @@ st.markdown(
         h1, h2, h3 { letter-spacing: -0.03em; }
         .subtitle { color: #737b8c; font-size: 0.95rem; margin-top: -0.6rem; margin-bottom: 1.4rem; }
         .section-title { font-size: 1.15rem; font-weight: 700; color: #202634; margin-top: 1.3rem; margin-bottom: 0.8rem; }
+        .subsection-title { font-size: 1.02rem; font-weight: 700; color: #303746; margin-top: 0.9rem; margin-bottom: 0.65rem; }
         div[data-testid="stMetric"] { background: white; border: 1px solid #e7e9ee; border-radius: 16px; padding: 18px 20px; box-shadow: 0 2px 10px rgba(25, 35, 50, 0.04); }
         div[data-testid="stMetricLabel"] { color: #7a8291; }
         div[data-testid="stMetricValue"] { color: #222837; }
@@ -36,6 +37,7 @@ def load_data():
         geojson = json.load(f)
     return df, geojson
 
+
 df, geojson = load_data()
 
 crime_options = {
@@ -48,14 +50,21 @@ crime_options = {
 }
 
 st.title("서울시 범죄 발생률과 아파트 매매가격")
-st.markdown('<div class="subtitle">2024년 · 서울시 25개 자치구 · 범죄 발생 수준과 주택가격의 관계</div>', unsafe_allow_html=True)
+st.markdown(
+    '<div class="subtitle">2024년 · 서울시 25개 자치구 · 범죄 발생 수준과 주택가격의 관계</div>',
+    unsafe_allow_html=True,
+)
 
 filter_col1, filter_col2 = st.columns([1, 1], gap="large")
 with filter_col1:
     selected_crime = st.selectbox("범죄 유형", list(crime_options.keys()), index=0)
 with filter_col2:
     gu_list = sorted(df["자치구"].tolist())
-    selected_gu = st.selectbox("상세 자치구", gu_list, index=gu_list.index("강남구") if "강남구" in gu_list else 0)
+    selected_gu = st.selectbox(
+        "상세 자치구",
+        gu_list,
+        index=gu_list.index("강남구") if "강남구" in gu_list else 0,
+    )
 
 count_col, rate_col = crime_options[selected_crime]
 r, p_value = pearsonr(df[rate_col], df["제곱미터당가격중앙값"])
@@ -75,13 +84,56 @@ if r > 0:
 elif r < 0:
     corr_label += " · 음(-)의 방향"
 
+# 선택 지역 상세 비교를 자치구 선택창 바로 아래에 배치
+st.markdown(
+    f'<div class="subsection-title">{selected_gu} 상세 비교</div>',
+    unsafe_allow_html=True,
+)
+
+gu = df[df["자치구"] == selected_gu].iloc[0]
+price_mean = df["제곱미터당가격중앙값"].mean()
+crime_mean = df[rate_col].mean()
+price_delta = (gu["제곱미터당가격중앙값"] / price_mean - 1) * 100
+crime_delta = (gu[rate_col] / crime_mean - 1) * 100
+
+d1, d2, d3, d4 = st.columns(4, gap="large")
+with d1:
+    st.metric(f"{selected_crime} 발생건수", f"{gu[count_col]:,.0f}건")
+with d2:
+    st.metric(
+        "인구 1만 명당 발생",
+        f"{gu[rate_col]:,.1f}건",
+        delta=f"{crime_delta:+.1f}% vs 서울 평균",
+    )
+with d3:
+    st.metric(
+        "㎡당 매매가격",
+        f"{gu['제곱미터당가격중앙값']:,.1f}만원",
+        delta=f"{price_delta:+.1f}% vs 서울 평균",
+    )
+with d4:
+    st.metric("2024 아파트 거래", f"{gu['거래건수']:,.0f}건")
+
+st.markdown('<div class="section-title">전체 요약</div>', unsafe_allow_html=True)
 m1, m2, m3 = st.columns(3, gap="large")
 with m1:
-    st.metric("Pearson 상관계수 r", f"{r:+.3f}", help=f"{corr_label} / p-value = {p_value:.4f}")
+    st.metric(
+        "Pearson 상관계수 r",
+        f"{r:+.3f}",
+        help=f"{corr_label} / p-value = {p_value:.4f}",
+    )
 with m2:
-    st.metric(f"평균 {selected_crime} 발생률", f"{mean_crime_rate:.1f}건", help="주민등록인구 1만 명당 발생건수의 자치구 평균")
+    st.metric(
+        f"평균 {selected_crime} 발생률",
+        f"{mean_crime_rate:.1f}건",
+        help="주민등록인구 1만 명당 발생건수의 자치구 평균",
+    )
 with m3:
-    st.metric("평균 ㎡당 아파트 가격", f"{mean_price:,.0f}만원", help="25개 자치구의 ㎡당 아파트 매매가격 중앙값의 평균")
+    st.metric(
+        "평균 ㎡당 아파트 가격",
+        f"{mean_price:,.0f}만원",
+        help="25개 자치구의 ㎡당 아파트 매매가격 중앙값의 평균",
+    )
 
 st.markdown('<div class="section-title">지역별 공간 분포</div>', unsafe_allow_html=True)
 map_col1, map_col2 = st.columns(2, gap="large")
@@ -93,7 +145,13 @@ crime_map = px.choropleth_map(
     featureidkey="properties.SIG_KOR_NM",
     color=rate_col,
     custom_data=["자치구", count_col, rate_col],
-    color_continuous_scale=[[0.00, "#fff7f7"], [0.25, "#fbd7d7"], [0.50, "#f4a6a6"], [0.75, "#e56565"], [1.00, "#c92f2f"]],
+    color_continuous_scale=[
+        [0.00, "#fff7f7"],
+        [0.25, "#fbd7d7"],
+        [0.50, "#f4a6a6"],
+        [0.75, "#e56565"],
+        [1.00, "#c92f2f"],
+    ],
     center={"lat": 37.5665, "lon": 126.9780},
     zoom=9.25,
     opacity=0.9,
@@ -104,7 +162,8 @@ crime_map.update_traces(
     marker_line_color="white",
     hovertemplate=(
         "<b>%{customdata[0]}</b><br>"
-        + f"{selected_crime} 발생: " + "%{customdata[1]:,.0f}건<br>"
+        + f"{selected_crime} 발생: "
+        + "%{customdata[1]:,.0f}건<br>"
         + "인구 1만 명당 발생: %{customdata[2]:.1f}건<extra></extra>"
     ),
 )
@@ -124,7 +183,13 @@ price_map = px.choropleth_map(
     featureidkey="properties.SIG_KOR_NM",
     color="제곱미터당가격중앙값",
     custom_data=["자치구", "제곱미터당가격중앙값", "매매가격중앙값", "거래건수"],
-    color_continuous_scale=[[0.00, "#f5f9ff"], [0.25, "#dbe8fb"], [0.50, "#abc9f2"], [0.75, "#6f9fe1"], [1.00, "#3467b2"]],
+    color_continuous_scale=[
+        [0.00, "#f5f9ff"],
+        [0.25, "#dbe8fb"],
+        [0.50, "#abc9f2"],
+        [0.75, "#6f9fe1"],
+        [1.00, "#3467b2"],
+    ],
     center={"lat": 37.5665, "lon": 126.9780},
     zoom=9.25,
     opacity=0.9,
@@ -154,7 +219,10 @@ with map_col1:
 with map_col2:
     st.plotly_chart(price_map, use_container_width=True, config={"displayModeBar": False})
 
-st.markdown('<div class="section-title">범죄 발생률과 아파트 가격의 관계</div>', unsafe_allow_html=True)
+st.markdown(
+    '<div class="section-title">범죄 발생률과 아파트 가격의 관계</div>',
+    unsafe_allow_html=True,
+)
 scatter = px.scatter(
     df,
     x=rate_col,
@@ -162,7 +230,10 @@ scatter = px.scatter(
     hover_name="자치구",
     custom_data=["자치구", count_col, "거래건수"],
     trendline="ols",
-    labels={rate_col: f"인구 1만 명당 {selected_crime} 발생건수", "제곱미터당가격중앙값": "㎡당 매매가격 중앙값 (만원)"},
+    labels={
+        rate_col: f"인구 1만 명당 {selected_crime} 발생건수",
+        "제곱미터당가격중앙값": "㎡당 매매가격 중앙값 (만원)",
+    },
 )
 for trace in scatter.data:
     if trace.mode == "markers":
@@ -170,9 +241,11 @@ for trace in scatter.data:
             marker=dict(size=11, color="#5b6b8c", opacity=0.85, line=dict(width=1, color="white")),
             hovertemplate=(
                 "<b>%{customdata[0]}</b><br>"
-                + f"{selected_crime} 발생률: " + "%{x:.1f}건<br>"
+                + f"{selected_crime} 발생률: "
+                + "%{x:.1f}건<br>"
                 + "㎡당 가격: %{y:,.1f}만원<br>"
-                + f"{selected_crime} 발생건수: " + "%{customdata[1]:,.0f}건<br>"
+                + f"{selected_crime} 발생건수: "
+                + "%{customdata[1]:,.0f}건<br>"
                 + "아파트 거래건수: %{customdata[2]:,.0f}건<extra></extra>"
             ),
         )
@@ -198,28 +271,35 @@ scatter.update_layout(
     paper_bgcolor="white",
     plot_bgcolor="white",
     showlegend=False,
-    xaxis=dict(gridcolor="#edf0f4", zeroline=False, title=f"인구 1만 명당 {selected_crime} 발생건수"),
-    yaxis=dict(gridcolor="#edf0f4", zeroline=False, title="㎡당 매매가격 중앙값 (만원)"),
-    annotations=[dict(x=0.99, y=0.98, xref="paper", yref="paper", xanchor="right", yanchor="top", text=f"<b>r = {r:+.3f}</b><br>p = {p_value:.4f}", showarrow=False, bgcolor="rgba(255,255,255,0.92)", bordercolor="#e4e7ec", borderwidth=1, borderpad=8, font=dict(size=13, color="#3c4350"))],
+    xaxis=dict(
+        gridcolor="#edf0f4",
+        zeroline=False,
+        title=f"인구 1만 명당 {selected_crime} 발생건수",
+    ),
+    yaxis=dict(
+        gridcolor="#edf0f4",
+        zeroline=False,
+        title="㎡당 매매가격 중앙값 (만원)",
+    ),
+    annotations=[
+        dict(
+            x=0.99,
+            y=0.98,
+            xref="paper",
+            yref="paper",
+            xanchor="right",
+            yanchor="top",
+            text=f"<b>r = {r:+.3f}</b><br>p = {p_value:.4f}",
+            showarrow=False,
+            bgcolor="rgba(255,255,255,0.92)",
+            bordercolor="#e4e7ec",
+            borderwidth=1,
+            borderpad=8,
+            font=dict(size=13, color="#3c4350"),
+        )
+    ],
 )
 st.plotly_chart(scatter, use_container_width=True, config={"displayModeBar": False})
-
-st.markdown('<div class="section-title">선택 지역 상세 비교</div>', unsafe_allow_html=True)
-gu = df[df["자치구"] == selected_gu].iloc[0]
-price_mean = df["제곱미터당가격중앙값"].mean()
-crime_mean = df[rate_col].mean()
-price_delta = (gu["제곱미터당가격중앙값"] / price_mean - 1) * 100
-crime_delta = (gu[rate_col] / crime_mean - 1) * 100
-
-d1, d2, d3, d4 = st.columns(4, gap="large")
-with d1:
-    st.metric(f"{selected_crime} 발생건수", f"{gu[count_col]:,.0f}건")
-with d2:
-    st.metric("인구 1만 명당 발생", f"{gu[rate_col]:,.1f}건", delta=f"{crime_delta:+.1f}% vs 서울 평균")
-with d3:
-    st.metric("㎡당 매매가격", f"{gu['제곱미터당가격중앙값']:,.1f}만원", delta=f"{price_delta:+.1f}% vs 서울 평균")
-with d4:
-    st.metric("2024 아파트 거래", f"{gu['거래건수']:,.0f}건")
 
 st.markdown(
     """
