@@ -101,7 +101,6 @@ with m3:
 st.markdown('<div class="section-title">지역별 공간 분포</div>', unsafe_allow_html=True)
 map1, map2 = st.columns(2, gap="large")
 
-# 지도 색은 선택한 범죄 유형 기준이지만, Hover에서는 모든 범죄 유형별 발생률을 함께 보여준다.
 crime_map = px.choropleth_map(
     df,
     geojson=geojson,
@@ -109,7 +108,7 @@ crime_map = px.choropleth_map(
     featureidkey="properties.SIG_KOR_NM",
     color=rate_col,
     custom_data=[
-        "자치구", count_col, rate_col,
+        "자치구", count_col,
         "전체범죄율", "살인율", "강도율", "강간강제추행율", "절도율", "폭력율"
     ],
     color_continuous_scale=[[0,"#fff7f7"],[.25,"#fbd7d7"],[.5,"#f4a6a6"],[.75,"#e56565"],[1,"#c92f2f"]],
@@ -124,14 +123,14 @@ crime_map.update_traces(
     hovertemplate=(
         "<b>%{customdata[0]}</b><br>"
         + f"<b>{selected_crime}</b> 발생: " + "%{customdata[1]:,.0f}건<br>"
-        + f"<b>{selected_crime}</b> 발생률: " + "%{customdata[2]:.2f}건<br>"
+        + f"<b>{selected_crime}</b> 발생률: " + "%{z:.2f}건<br>"
         + "<br><b>범죄 유형별 발생률 (인구 1만 명당)</b><br>"
-        + "전체 범죄: %{customdata[3]:.2f}건<br>"
-        + "살인: %{customdata[4]:.2f}건<br>"
-        + "강도: %{customdata[5]:.2f}건<br>"
-        + "강간·강제추행: %{customdata[6]:.2f}건<br>"
-        + "절도: %{customdata[7]:.2f}건<br>"
-        + "폭력: %{customdata[8]:.2f}건"
+        + "전체 범죄: %{customdata[2]:.2f}건<br>"
+        + "살인: %{customdata[3]:.2f}건<br>"
+        + "강도: %{customdata[4]:.2f}건<br>"
+        + "강간·강제추행: %{customdata[5]:.2f}건<br>"
+        + "절도: %{customdata[6]:.2f}건<br>"
+        + "폭력: %{customdata[7]:.2f}건"
         + "<extra></extra>"
     ),
 )
